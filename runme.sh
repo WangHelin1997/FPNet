@@ -14,8 +14,5 @@ BATCH_SIZE=64
 # Calculate feature
 #python util/feature_1D.py calculate_feature_for_all_audio_files --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE
 
-# Calculate scalar
-#python util/feature_1D.py calculate_scalar --workspace=$WORKSPACE
-
 # Tarin
 CUDA_VISIBLE_DEVICES=$GPU_ID python util/main_1D.py train --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --holdout_fold=1 --model_type=$MODEL_TYPE --batch_size=$BATCH_SIZE --cuda
