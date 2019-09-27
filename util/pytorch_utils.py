@@ -39,21 +39,26 @@ def forward(model, generate_func, cuda, return_input=False,
     
     # Evaluate on mini-batch
     for batch_data_dict in generate_func:
+        batch_output=[]
+        for i in range(4):
+            # Predict
+            batch_feature = move_data_to_gpu(batch_data_dict['feature'][:, i, :, :], cuda)
 
-        # Predict
-        batch_feature = move_data_to_gpu(batch_data_dict['feature'], cuda)
-        
-        with torch.no_grad():
-            model.eval()
-            batch_output = model(batch_feature)
+            with torch.no_grad():
+                model.eval()
+                batch_outputx = model(batch_feature)
+            if i == 0:
+                batch_output = batch_outputx
+            else:
+                batch_output = batch_output + batch_outputx
 
         append_to_dict(output_dict, 'filename', batch_data_dict['filename'])
-        
+
         append_to_dict(output_dict, 'output', batch_output.data.cpu().numpy())
-            
+
         if return_input:
             append_to_dict(output_dict, 'feature', batch_data_dict['feature'])
-            
+
         if return_target:
             if 'target' in batch_data_dict.keys():
                 append_to_dict(output_dict, 'target', batch_data_dict['target'])

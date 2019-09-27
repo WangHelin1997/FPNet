@@ -13,10 +13,8 @@ import pandas as pd
 import random
 import torch
 
-from utils import (create_folder, read_audio, calculate_scalar_of_tensor, 
-    pad_truncate_sequence, read_metadata)
+from utils import (create_folder, read_audio, pad_truncate_sequence, read_metadata)
 import config
-from audio import Melspectrogram
 
 class LogMelExtractor(object):
     def __init__(self, sample_rate, window_size, hop_size, mel_bins, fmin, fmax):
@@ -105,7 +103,11 @@ def calculate_feature_for_all_audio_files(args):
     frames_num = config.frames_num
     total_samples = config.total_samples
     lb_to_idx = config.lb_to_idx
-    
+    audio_duration_clip = config.audio_duration_clip
+    audio_stride_clip = config.audio_stride_clip
+    audio_duration = config.audio_duration
+    audio_num = int(audio_duration/audio_stride_clip) - 1
+    total_frames = config.total_frames
     # Paths
     if mini_data:
         prefix = 'minidata_'
@@ -184,8 +186,8 @@ def calculate_feature_for_all_audio_files(args):
 
     hf.create_dataset(
         name='feature', 
-        shape=(0, frames_num, mel_bins), 
-        maxshape=(None, frames_num, mel_bins), 
+        shape=(0, audio_num, frames_num, mel_bins), 
+        maxshape=(None, audio_num, frames_num, mel_bins), 
         dtype=np.float32)
 
     for (n, filename) in enumerate(meta_dict['filename']):
@@ -199,14 +201,22 @@ def calculate_feature_for_all_audio_files(args):
         
         # Pad or truncate audio recording to the same length
         audio = pad_truncate_sequence(audio, total_samples)
-        
         # Extract feature
+        fea_list = []
+#         for i in range(audio_num):
+#             audio_clip = audio[i*sample_rate*audio_stride_clip: (i+2)*sample_rate*audio_stride_clip]
+#             feature = feature_extractor.transform(audio_clip)
+#             feature = feature[0 : frames_per_second*audio_duration_clip]
+#             fea_list.append(feature)
         feature = feature_extractor.transform(audio)
-        # Remove the extra log mel spectrogram frames caused by padding zero
-        feature = feature[0 : frames_num]
+#         # Remove the extra log mel spectrogram frames caused by padding zero
+        feature = feature[0 : total_frames]
+        for i in range(audio_num):
+            feature_clip = feature[i*frames_per_second*audio_stride_clip: (i+2)*frames_per_second*audio_stride_clip]
+            fea_list.append(feature_clip)
         
-        hf['feature'].resize((n + 1, frames_num, mel_bins))
-        hf['feature'][n] = feature
+        hf['feature'].resize((n + 1, audio_num, frames_num, mel_bins))
+        hf['feature'][n] = fea_list
             
     hf.close()
         
@@ -214,54 +224,6 @@ def calculate_feature_for_all_audio_files(args):
         feature_path, time.time() - extract_time))
     
     
-def calculate_scalar(args):
-    '''Calculate and write out scalar of features. 
-    
-    Args:
-      workspace: string
-      data_type: 'train'
-      mini_data: bool, set True for debugging on a small part of data
-    '''
-
-    # Arguments & parameters
-    workspace = args.workspace
-    mini_data = args.mini_data
-    
-    mel_bins = config.mel_bins
-    frames_per_second = config.frames_per_second
-    
-    # Paths
-    if mini_data:
-        prefix = 'minidata_'
-    else:
-        prefix = ''
-    
-    feature_path = os.path.join(workspace, 'features', 
-        '{}logmel_{}frames_{}melbins.h5'.format(prefix, frames_per_second, mel_bins))
-        
-    scalar_path = os.path.join(workspace, 'scalars', 
-        '{}logmel_{}frames_{}melbins.h5'.format(prefix, frames_per_second, mel_bins))
-    create_folder(os.path.dirname(scalar_path))
-        
-    # Load data
-    load_time = time.time()
-    
-    with h5py.File(feature_path, 'r') as hf:
-        features = hf['feature'][:]
-    
-    # Calculate scalar
-    features = np.concatenate(features, axis=0)
-    (mean, std) = calculate_scalar_of_tensor(features)
-    
-    with h5py.File(scalar_path, 'w') as hf:
-        hf.create_dataset('mean', data=mean, dtype=np.float32)
-        hf.create_dataset('std', data=std, dtype=np.float32)
-    
-    print('All features: {}'.format(features.shape))
-    print('mean: {}'.format(mean))
-    print('std: {}'.format(std))
-    print('Write out scalar to {}'.format(scalar_path))
-            
 
 if __name__ == '__main__':
     
@@ -274,19 +236,8 @@ if __name__ == '__main__':
     parser_logmel.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')        
     parser_logmel.add_argument('--mini_data', action='store_true', default=False, help='Set True for debugging on a small part of data.')
         
-    # Calculate scalar
-    parser_scalar = subparsers.add_parser('calculate_scalar')    
-    parser_scalar.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')    
-    parser_scalar.add_argument('--mini_data', action='store_true', default=False, help='Set True for debugging on a small part of data.')
     
     # Parse arguments
     args = parser.parse_args()
-    
-    if args.mode == 'calculate_feature_for_all_audio_files':
-        calculate_feature_for_all_audio_files(args)
-        
-    elif args.mode == 'calculate_scalar':
-        calculate_scalar(args)
-        
-    else:
-        raise Exception('Incorrect arguments!')
+    calculate_feature_for_all_audio_files(args)
+

@@ -202,8 +202,9 @@ def calculate_feature_for_all_audio_files(args):
         audio = pad_truncate_sequence(audio, total_samples)
         
         # Extract feature
-        tag = random.randint(0,total_samples-total_samples_clip-1)
-        feature = audio[tag:tag+total_samples_clip]
+#         tag = random.randint(0,total_samples-total_samples_clip-1)
+#         feature = audio[tag:tag+total_samples_clip]
+        feature = audio
         
         hf['feature'].resize((n + 1, total_samples_clip))
         hf['feature'][n] = feature

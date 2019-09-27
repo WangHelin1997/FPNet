@@ -159,44 +159,7 @@ def pad_truncate_sequence(x, max_len):
     else:
         return x[0 : max_len]
     
-    
-def calculate_scalar_of_tensor(x):
-    if x.ndim == 2:
-        axis = 0
-    elif x.ndim == 3:
-        axis = (0, 1)
-
-    mean = np.mean(x, axis=axis)
-    std = np.std(x, axis=axis)
-
-    return mean, std
-def calculate_scalar_of_tensor_1D(x):
-    if x.ndim == 2:
-        axis = 0
-    elif x.ndim == 3:
-        axis = (0, 1)
-
-    mean = np.mean(x)
-    std = np.std(x)
-
-    return mean, std
-
-
-def load_scalar(scalar_path):
-    with h5py.File(scalar_path, 'r') as hf:
-        mean = hf['mean'][:]
-        std = hf['std'][:]
-        
-    scalar = {'mean': mean, 'std': std}
-    return scalar
-def load_scalar_1D(scalar_path):
-    with h5py.File(scalar_path, 'r') as hf:
-        mean = hf['mean']
-        std = hf['std']
-        
-    scalar = {'mean': mean, 'std': std}
-    return scalar
-    
+   
     
 def scale(x, mean, std):
     return (x - mean) / std

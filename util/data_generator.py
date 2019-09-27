@@ -8,7 +8,7 @@ import glob
 import matplotlib.pyplot as plt
 import logging
 
-from utils import scale, read_metadata, sparse_to_categorical
+from utils import read_metadata, sparse_to_categorical
 import config
 
 
@@ -53,14 +53,11 @@ class Base(object):
             
         return data_dict
 
-    def transform(self, x):
-        return scale(x, self.scalar['mean'], self.scalar['std'])
 
 
 class DataGenerator(Base):
     
-    def __init__(self, feature_hdf5_path, train_csv, validate_csv, holdout_fold, 
-        scalar, batch_size, seed=1234):
+    def __init__(self, feature_hdf5_path, train_csv, validate_csv, holdout_fold, batch_size, seed=1234):
         '''Data generator for training and validation. 
         
         Args:
@@ -74,7 +71,6 @@ class DataGenerator(Base):
           seed: int, random seed
         '''
 
-        self.scalar = scalar
         self.batch_size = batch_size
         self.random_state = np.random.RandomState(seed)
         
@@ -157,7 +153,6 @@ class DataGenerator(Base):
                 self.data_dict['filename'][batch_audio_indexes]
             
             batch_feature = self.data_dict['feature'][batch_audio_indexes]
-            batch_feature = self.transform(batch_feature)
             batch_data_dict['feature'] = batch_feature
             
             sparse_target = self.data_dict['target'][batch_audio_indexes]
@@ -210,7 +205,6 @@ class DataGenerator(Base):
                 self.data_dict['filename'][batch_audio_indexes]
             
             batch_feature = self.data_dict['feature'][batch_audio_indexes]
-            batch_feature = self.transform(batch_feature)
             batch_data_dict['feature'] = batch_feature
             
             sparse_target = self.data_dict['target'][batch_audio_indexes]
@@ -221,7 +215,7 @@ class DataGenerator(Base):
             
 
 class EvaluationDataGenerator(Base):
-    def __init__(self, feature_hdf5_path, scalar, batch_size, seed=1234):
+    def __init__(self, feature_hdf5_path, batch_size, seed=1234):
         '''Data generator for training and validation. 
         
         Args:
@@ -230,7 +224,6 @@ class EvaluationDataGenerator(Base):
           batch_size: int
           seed: int, random seed
         '''
-        self.scalar = scalar
         self.batch_size = batch_size
 
         self.data_dict = self.load_hdf5(feature_hdf5_path)
@@ -271,10 +264,7 @@ class EvaluationDataGenerator(Base):
                 self.data_dict['filename'][batch_audio_indexes]
             
             batch_feature = self.data_dict['feature'][batch_audio_indexes]
-            batch_feature = self.transform(batch_feature)
             batch_data_dict['feature'] = batch_feature
             
             yield batch_data_dict
             
-    def transform(self, x):
-        return scale(x, self.scalar['mean'], self.scalar['std'])

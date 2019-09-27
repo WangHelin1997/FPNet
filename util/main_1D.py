@@ -14,7 +14,8 @@ import torch.optim as optim
 
 from utils import (create_folder, get_filename, create_logging, load_scalar_1D, mixup_data, mixup_criterion)
 from data_generator_1D import DataGenerator, EvaluationDataGenerator
-from model import Cnn_9layers_AvgPooling_1D
+# from model import Cnn_9layers_AvgPooling_1D
+from stft import MyNet
 from losses import nll_loss
 from evaluate_1D import Evaluator, StatisticsContainer
 from pytorch_utils import move_data_to_gpu, forward

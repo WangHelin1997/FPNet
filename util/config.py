@@ -1,18 +1,19 @@
 sample_rate = 44100
-window_size = 1024
-hop_size = 512      # So that there are 64 frames per second
+window_size = 1764
+hop_size = 882      # So that there are 64 frames per second
 mel_bins = 40
 fmin = 50       # Hz
 fmax = int(sample_rate/2)    # Hz
 
 frames_per_second = sample_rate // hop_size
 audio_duration = 5     # Audio recordings in ESC-50 are all 5 seconds
-frames_num = frames_per_second * audio_duration
 total_samples = sample_rate * audio_duration
-audio_duration_clip = 1.5
+audio_duration_clip = 2
+audio_stride_clip = 1
+total_frames = frames_per_second * audio_duration
 frames_num_clip = int(frames_per_second * audio_duration_clip)
 total_samples_clip = int(sample_rate * audio_duration_clip)
-
+frames_num = frames_per_second * audio_duration_clip
 # labels = ['airport', 'shopping_mall', 'metro_station', 'street_pedestrian', 
 #     'public_square', 'street_traffic', 'tram', 'bus', 'metro', 'park', 'unknown']
 labels = [ 'dog', 'rooster', 'pig', 'cow', 'frog', 'cat', 'hen', 'insects',
