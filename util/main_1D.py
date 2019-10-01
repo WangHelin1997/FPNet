@@ -12,15 +12,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from utils import (create_folder, get_filename, create_logging, load_scalar_1D, mixup_data, mixup_criterion)
+from utils import (create_folder, get_filename, create_logging, mixup_data, mixup_criterion)
 from data_generator_1D import DataGenerator, EvaluationDataGenerator
 # from model import Cnn_9layers_AvgPooling_1D
-from stft import MyNet
+from net_1D import Cnns
 from losses import nll_loss
 from evaluate_1D import Evaluator, StatisticsContainer
 from pytorch_utils import move_data_to_gpu, forward
-import config
-
+import config_1D as config
 
 def train(args, i):
     '''Training. Model will be saved after several iterations. 
@@ -45,7 +44,7 @@ def train(args, i):
     cuda = args.cuda and torch.cuda.is_available()
     mini_data = args.mini_data
     filename = args.filename
-    
+    audio_num = args.audio_num
     mel_bins = config.mel_bins
     frames_per_second = config.frames_per_second
     max_iteration = None      # Number of mini-batches to evaluate on training data
@@ -65,8 +64,6 @@ def train(args, i):
     feature_hdf5_path = os.path.join(workspace, 'features', 
         '{}logmel_{}frames_{}melbins_1D.h5'.format(prefix, frames_per_second, mel_bins))
         
-    scalar_path = os.path.join(workspace, 'scalars', 
-        '{}logmel_{}frames_{}melbins_1D.h5'.format(prefix, frames_per_second, mel_bins))
         
     checkpoints_dir = os.path.join(workspace, 'checkpoints', filename, 
         '{}logmel_{}frames_{}melbins.h5'.format(prefix, frames_per_second, mel_bins), 
@@ -91,8 +88,6 @@ def train(args, i):
     else:
         logging.info('Using CPU. Set --cuda flag to use GPU.')
 
-    # Load scalar
-    scalar = load_scalar_1D(scalar_path)
     
     # Model
     Model = eval(model_type)
@@ -113,7 +108,6 @@ def train(args, i):
         train_csv=train_csv, 
         validate_csv=validate_csv, 
         holdout_fold=holdout_fold, 
-        scalar=scalar, 
         batch_size=batch_size)
     
     # Evaluator
@@ -176,19 +170,20 @@ def train(args, i):
         for key in batch_data_dict.keys():
             if key in ['feature', 'target']:
                 batch_data_dict[key] = move_data_to_gpu(batch_data_dict[key], cuda)
-        
-        # Train
-        model.train() 
-        data, target_a, target_b, lam = mixup_data(x=batch_data_dict['feature'], y=batch_data_dict['target'], alpha=0.2)
-        batch_output = model(data)
-        # loss
-#         loss = loss_func(batch_output, batch_data_dict['target'])
-        loss = mixup_criterion(loss_func, batch_output, target_a, target_b, lam)
+                
+        for i in range(audio_num):
+            model.train() 
+#             data, target_a, target_b, lam = mixup_data(x=batch_data_dict['feature'][:, i, :], y=batch_data_dict['target'], alpha=0.2)
+#             batch_output = model(data)
+            batch_output = model(batch_data_dict['feature'][:, i, :])
+            # loss
+            loss = loss_func(batch_output, batch_data_dict['target'])
+#             loss = mixup_criterion(loss_func, batch_output, target_a, target_b, lam)
 
-        # Backward
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # Backward
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
         # Stop learning
         if iteration == 3200:
@@ -311,6 +306,7 @@ if __name__ == '__main__':
     parser_train.add_argument('--model_type', type=str, required=True, help='E.g., Cnn_9layers_AvgPooling.')
     parser_train.add_argument('--batch_size', type=int, required=True)
     parser_train.add_argument('--cuda', action='store_true', default=False)
+    parser_train.add_argument('--audio_num', type=int, default=4)
     parser_train.add_argument('--mini_data', action='store_true', default=False, help='Set True for debugging on a small part of data.')
 
     # Inference validation data

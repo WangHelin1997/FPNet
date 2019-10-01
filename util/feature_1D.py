@@ -13,10 +13,8 @@ import pandas as pd
 import random
 import torch
 
-from utils import (create_folder, read_audio_1D, calculate_scalar_of_tensor_1D, 
-    pad_truncate_sequence, read_metadata)
-import config
-from audio import Melspectrogram
+from utils import (create_folder, read_audio_1D, pad_truncate_sequence, read_metadata)
+import config_1D as config
 
 class LogMelExtractor(object):
     def __init__(self, sample_rate, window_size, hop_size, mel_bins, fmin, fmax):
@@ -106,6 +104,10 @@ def calculate_feature_for_all_audio_files(args):
     frames_num = config.frames_num
     total_samples = config.total_samples
     lb_to_idx = config.lb_to_idx
+    audio_duration = config.audio_duration
+    audio_duration_clip = config.audio_duration_clip
+    audio_stride_clip = config.audio_stride_clip
+    audio_num = int(audio_duration/audio_stride_clip) - 1
     
     # Paths
     if mini_data:
@@ -118,14 +120,6 @@ def calculate_feature_for_all_audio_files(args):
     feature_path = os.path.join(workspace, 'features', 
         '{}logmel_{}frames_{}melbins_1D.h5'.format(prefix, frames_per_second, mel_bins))
     create_folder(os.path.dirname(feature_path))    
-    # Feature extractor
-    feature_extractor = LogMelExtractor(
-        sample_rate=sample_rate, 
-        window_size=window_size, 
-        hop_size=hop_size, 
-        mel_bins=mel_bins, 
-        fmin=fmin, 
-        fmax=fmax)
 
     # Read metadata
     meta_dict = read_metadata(metadata_path)
@@ -185,8 +179,8 @@ def calculate_feature_for_all_audio_files(args):
 
     hf.create_dataset(
         name='feature', 
-        shape=(0, total_samples_clip), 
-        maxshape=(None, total_samples_clip), 
+        shape=(0, audio_num, total_samples_clip), 
+        maxshape=(None, audio_num, total_samples_clip), 
         dtype=np.float32)
 
     for (n, filename) in enumerate(meta_dict['filename']):
@@ -205,9 +199,13 @@ def calculate_feature_for_all_audio_files(args):
 #         tag = random.randint(0,total_samples-total_samples_clip-1)
 #         feature = audio[tag:tag+total_samples_clip]
         feature = audio
+        fea_list = []
+        for i in range(audio_num):
+            feature_clip = feature[i*sample_rate*audio_stride_clip: (i+2)*sample_rate*audio_stride_clip]
+            fea_list.append(feature_clip)
         
-        hf['feature'].resize((n + 1, total_samples_clip))
-        hf['feature'][n] = feature
+        hf['feature'].resize((n + 1, audio_num, total_samples_clip))
+        hf['feature'][n] = fea_list
             
     hf.close()
         

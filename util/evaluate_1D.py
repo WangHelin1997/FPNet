@@ -9,8 +9,8 @@ import datetime
 import _pickle as cPickle
 import sed_eval
 from utils import get_filename, inverse_scale
-from pytorch_utils import forward
-import config
+from pytorch_utils import forward_1D
+import config_1D as config
 
 
 class Evaluator(object):
@@ -48,7 +48,7 @@ class Evaluator(object):
             max_iteration=max_iteration)
         
         # Forward
-        output_dict = forward(
+        output_dict = forward_1D(
             model=self.model, 
             generate_func=generate_func, 
             cuda=self.cuda, 
