@@ -255,8 +255,112 @@ class Cnn_9layers_AvgPooling_mix(nn.Module):
         elif self.activation == 'sigmoid':
             output = torch.sigmoid(x)
         
-        return output
+        return output 
+
+
     
+def conv3x3(in_planes, out_planes, stride=1):
+    """3x3 convolution with padding"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
+                     padding=1, bias=False)
+def conv1x1(in_planes, out_planes, stride=1):
+    """1x1 convolution"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+
+class ConvBlock_mix2(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        
+        super(ConvBlock_mix2, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=in_channels, 
+                              out_channels=out_channels,
+                              kernel_size=(3, 3), stride=(1, 1),
+                              padding=(1, 1), bias=False)
+                              
+        self.conv2 = nn.Conv2d(in_channels=out_channels, 
+                              out_channels=out_channels,
+                              kernel_size=(3, 3), stride=(1, 1),
+                              padding=(1, 1), bias=False)
+                              
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        if out_channels == 64:
+            self.globalAvgPool = nn.AvgPool2d((100,40), stride=1)
+            self.globalAvgPool2 = nn.AvgPool2d((100,64), stride=1)
+            self.fc1_2 = nn.Linear(in_features=40, out_features=40)
+            self.fc2_2 = nn.Linear(in_features=40, out_features=40)
+        elif out_channels == 128:
+            self.globalAvgPool = nn.AvgPool2d((50,20), stride=1)
+            self.globalAvgPool2 = nn.AvgPool2d((50,128), stride=1)
+            self.fc1_2 = nn.Linear(in_features=20, out_features=20)
+            self.fc2_2 = nn.Linear(in_features=20, out_features=20)
+        elif out_channels == 256:
+            self.globalAvgPool = nn.AvgPool2d((25,10), stride=1)
+            self.globalAvgPool2 = nn.AvgPool2d((25,256), stride=1)
+            self.fc1_2 = nn.Linear(in_features=10, out_features=10)
+            self.fc2_2 = nn.Linear(in_features=10, out_features=10)
+        elif out_channels == 512:
+            self.globalAvgPool = nn.AvgPool2d((12,5), stride=1)
+            self.globalAvgPool2 = nn.AvgPool2d((12,512), stride=1)
+            self.fc1_2 = nn.Linear(in_features=5, out_features=5)
+            self.fc2_2 = nn.Linear(in_features=5, out_features=5)
+        self.fc1 = nn.Linear(in_features=out_channels, out_features=round(out_channels / 16))
+        self.fc2 = nn.Linear(in_features=round(out_channels / 16), out_features=out_channels)
+        self.sigmoid = nn.Sigmoid()
+        self.sigmoid2 = nn.Sigmoid()
+        self.downsample = conv1x1(in_channels, out_channels)
+        self.bn = nn.BatchNorm2d(out_channels)
+        self.init_weights()
+        
+        
+    def init_weights(self):
+        
+        init_layer(self.conv1)
+        init_layer(self.conv2)
+        init_bn(self.bn1)
+        init_bn(self.bn2)
+        init_bn(self.bn)
+        
+    def forward(self, input, pool_size=(2, 2), pool_type='avg'):
+        
+        x = input
+        x = F.relu_(self.bn1(self.conv1(x)))
+        x = F.relu_(self.bn2(self.conv2(x)))
+        res = x
+        y = x
+        res_2 = x
+        x = self.globalAvgPool(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        x = F.relu_(x)
+        x = self.fc2(x)
+        x = self.sigmoid(x)
+        x = x.view(x.size(0), x.size(1), 1, 1)
+        x = x * res
+        h = self.downsample(input)
+        h = self.bn(h)
+        x += h
+        res_2 = res_2.transpose(1,3)
+        y = y.transpose(1,3)
+        y = self.globalAvgPool2(y)
+        y = y.view(y.size(0), -1)
+        y = self.fc1_2(y)
+        y = F.relu_(y)
+        y = self.fc2_2(y)
+        y = self.sigmoid2(y)
+        y = y.view(y.size(0), y.size(1), 1, 1)
+        y = y * res_2
+        y = y.transpose(1,3)
+        x += y
+        x = F.relu_(x)
+        if pool_type == 'max':
+            x = F.max_pool2d(x, kernel_size=pool_size)
+        elif pool_type == 'avg':
+            x = F.avg_pool2d(x, kernel_size=pool_size)
+        else:
+            raise Exception('Incorrect argument!')
+        
+        return x
 class Cnns(nn.Module):
     
     def __init__(self, classes_num=50, activation='logsoftmax'):
@@ -264,10 +368,10 @@ class Cnns(nn.Module):
 
         self.activation = activation
 
-        self.conv_block1 = ConvBlock_mix(in_channels=1, out_channels=64)
-        self.conv_block2 = ConvBlock_mix(in_channels=64, out_channels=128)
-        self.conv_block3 = ConvBlock_mix(in_channels=128, out_channels=256)
-        self.conv_block4 = ConvBlock_mix(in_channels=256, out_channels=512)
+        self.conv_block1 = ConvBlock_mix2(in_channels=1, out_channels=64)
+        self.conv_block2 = ConvBlock_mix2(in_channels=64, out_channels=128)
+        self.conv_block3 = ConvBlock_mix2(in_channels=128, out_channels=256)
+        self.conv_block4 = ConvBlock_mix2(in_channels=256, out_channels=512)
         self.fc2 = nn.Linear(512, 512, bias=True)
         self.dropout = nn.Dropout(p=0.5)
         self.fc = nn.Linear(512, classes_num, bias=True)
@@ -302,7 +406,194 @@ class Cnns(nn.Module):
         elif self.activation == 'sigmoid':
             output = torch.sigmoid(x)
         
-        return output
+        return output  
+
+class BasicBlock(nn.Module):
+    expansion = 1
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super(BasicBlock, self).__init__()
+        self.conv1 = conv3x3(inplanes, planes, stride)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = conv3x3(planes, planes)
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.downsample = downsample
+        self.stride = stride
+
+        if planes == 64:
+            self.globalAvgPool = nn.AvgPool2d(40, stride=1)
+        elif planes == 128:
+            self.globalAvgPool = nn.AvgPool2d(28, stride=1)
+        elif planes == 256:
+            self.globalAvgPool = nn.AvgPool2d(14, stride=1)
+        elif planes == 512:
+            self.globalAvgPool = nn.AvgPool2d(7, stride=1)
+        self.fc1 = nn.Linear(in_features=planes, out_features=round(planes / 16))
+        self.fc2 = nn.Linear(in_features=round(planes / 16), out_features=planes)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        print(x.shape)
+        residual = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        print(out.shape)
+        if self.downsample is not None:
+            residual = self.downsample(x)
+            print(residual.shape)
+
+        original_out = out
+        out = self.globalAvgPool(out)
+        print(out.shape)
+        out = out.view(out.size(0), -1)
+        print(out.shape)
+        out = self.fc1(out)
+        out = self.relu(out)
+        out = self.fc2(out)
+        out = self.sigmoid(out)
+        out = out.view(out.size(0), out.size(1), 1, 1)
+        out = out * original_out
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
+
+class Bottleneck(nn.Module):
+    expansion = 4
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super(Bottleneck, self).__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
+                               padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes * 4)
+        self.relu = nn.ReLU(inplace=True)
+        if planes == 64:
+            self.globalAvgPool = nn.AvgPool2d(56, stride=1)
+        elif planes == 128:
+            self.globalAvgPool = nn.AvgPool2d(28, stride=1)
+        elif planes == 256:
+            self.globalAvgPool = nn.AvgPool2d(14, stride=1)
+        elif planes == 512:
+            self.globalAvgPool = nn.AvgPool2d(7, stride=1)
+        self.fc1 = nn.Linear(in_features=planes * 4, out_features=round(planes / 4))
+        self.fc2 = nn.Linear(in_features=round(planes / 4), out_features=planes * 4)
+        self.sigmoid = nn.Sigmoid()
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        residual = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        original_out = out
+        out = self.globalAvgPool(out)
+        out = out.view(out.size(0), -1)
+        out = self.fc1(out)
+        out = self.relu(out)
+        out = self.fc2(out)
+        out = self.sigmoid(out)
+        out = out.view(out.size(0),out.size(1),1,1)
+        out = out * original_out
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
+# class Cnns(nn.Module):
+
+#     def __init__(self, block=BasicBlock, layers=[1,1,1,1], classes_num=50, activation = 'logsoftmax'):
+#         self.inplanes = 64
+#         super(Cnns, self).__init__()
+#         self.activation = activation
+#         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=1, padding=3,
+#                                bias=False)
+#         self.bn1 = nn.BatchNorm2d(64)
+#         self.relu = nn.ReLU(inplace=True)
+#         self.maxpool = nn.MaxPool2d(kernel_size=1, stride=1, padding=0)
+#         self.layer1 = self._make_layer(BasicBlock, 64, 1)
+#         self.layer2 = self._make_layer(BasicBlock, 128, 1, stride=2)
+#         self.layer3 = self._make_layer(BasicBlock, 256, 1, stride=2)
+#         self.layer4 = self._make_layer(BasicBlock, 512, 1, stride=2)
+#         self.avgpool = nn.AvgPool2d(7, stride=1)
+#         self.fc = nn.Linear(512, classes_num)
+
+#         for m in self.modules():
+#             if isinstance(m, nn.Conv2d):
+#                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+#                 m.weight.data.normal_(0, math.sqrt(2. / n))
+#             elif isinstance(m, nn.BatchNorm2d):
+#                 m.weight.data.fill_(1)
+#                 m.bias.data.zero_()
+
+#     def _make_layer(self, block, planes, blocks, stride=1):
+#         downsample = None
+#         if stride != 1 or self.inplanes != planes:
+#             downsample = nn.Sequential(
+#                 nn.Conv2d(self.inplanes, planes,
+#                           kernel_size=1, stride=stride, bias=False),
+#                 nn.BatchNorm2d(planes),
+#             )
+
+#         layers = []
+#         layers.append(block(self.inplanes, planes, stride, downsample))
+#         self.inplanes = planes * block.expansion
+#         for i in range(1, blocks):
+#             layers.append(block(self.inplanes, planes))
+
+#         return nn.Sequential(*layers)
+
+#     def forward(self, x):
+#         print(x.shape)
+#         x = x[:, None, :, :]
+#         x = self.conv1(x)
+#         x = self.bn1(x)
+#         x = self.relu(x)
+#         x = self.maxpool(x)
+
+#         x = self.layer1(x)
+#         x = self.layer2(x)
+#         x = self.layer3(x)
+#         x = self.layer4(x)
+
+#         x = self.avgpool(x)
+#         x = x.view(x.size(0), -1)
+#         x = self.fc(x)
+
+#         if self.activation == 'logsoftmax':
+#             output = F.log_softmax(x, dim=-1)
+            
+#         elif self.activation == 'sigmoid':
+#             output = torch.sigmoid(x)
+        
+#         return output
+    
+    
     
 # class Cnns(nn.Module):
 
