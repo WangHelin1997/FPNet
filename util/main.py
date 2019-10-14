@@ -14,7 +14,7 @@ import torch.optim as optim
 
 from utils import (create_folder, get_filename, create_logging, mixup_data, mixup_criterion)
 from data_generator import DataGenerator, EvaluationDataGenerator
-from net import Cnns
+from net import Cnns, Cnns2
 from losses import nll_loss
 from evaluate import Evaluator, StatisticsContainer
 from pytorch_utils import move_data_to_gpu, forward
@@ -44,7 +44,7 @@ def train(args, i):
     cuda = args.cuda and torch.cuda.is_available()
     mini_data = args.mini_data
     filename = args.filename
-    audio_num = args.audio_num
+    audio_num = config.audio_num
     mel_bins = config.mel_bins
     frames_per_second = config.frames_per_second
     max_iteration = None      # Number of mini-batches to evaluate on training data
@@ -124,17 +124,19 @@ def train(args, i):
     for batch_data_dict in data_generator.generate_train():
         
         # Evaluate
-        if iteration % 100 == 0 and iteration >= 1000:
+        if iteration % 100 == 0 and iteration >= 1500:
             logging.info('------------------------------------')
             logging.info('Iteration: {}'.format(iteration))
 
             train_fin_time = time.time()
 
             
-            train_statistics = evaluator.evaluate(data_type='train', max_iteration=None, verbose=False)
+            train_statistics = evaluator.evaluate(data_type='train', iteration= iteration,
+                                                  max_iteration=None, verbose=False)
             
             if holdout_fold != 'none':
-                validate_statistics = evaluator.evaluate(data_type='validate', max_iteration=None, verbose=False)
+                validate_statistics = evaluator.evaluate(data_type='validate', 
+                                                         iteration= iteration, max_iteration=None, verbose=False)
                 validate_statistics_container.append_and_dump(iteration, validate_statistics)
 
             train_time = train_fin_time - train_bgn_time
@@ -146,18 +148,18 @@ def train(args, i):
 
             train_bgn_time = time.time()
 
-        # Save model
-#         if iteration % 200 == 0 and iteration > 0:
-#             checkpoint = {
-#                 'iteration': iteration, 
-#                 'model': model.state_dict(), 
-#                 'optimizer': optimizer.state_dict()}
+#         Save model
+        if iteration % 100 == 0 and iteration > 0:
+            checkpoint = {
+                'iteration': iteration, 
+                'model': model.state_dict(), 
+                'optimizer': optimizer.state_dict()}
 
-#             checkpoint_path = os.path.join(
-#                 checkpoints_dir, '{}_iterations.pth'.format(iteration))
+            checkpoint_path = os.path.join(
+                checkpoints_dir, '{}_iterations.pth'.format(iteration))
                 
-#             torch.save(checkpoint, checkpoint_path)
-#             logging.info('Model saved to {}'.format(checkpoint_path))
+            torch.save(checkpoint, checkpoint_path)
+            logging.info('Model saved to {}'.format(checkpoint_path))
             
         # Reduce learning rate
         if reduce_lr and iteration % 100 == 0 and iteration > 0:
@@ -185,7 +187,7 @@ def train(args, i):
             optimizer.step()
 
         # Stop learning
-        if iteration == 2500:
+        if iteration == 4000:
             break
             
         iteration += 1

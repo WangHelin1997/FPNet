@@ -106,7 +106,7 @@ def calculate_feature_for_all_audio_files(args):
     audio_duration_clip = config.audio_duration_clip
     audio_stride_clip = config.audio_stride_clip
     audio_duration = config.audio_duration
-    audio_num = int(audio_duration/audio_stride_clip) - 1
+    audio_num = config.audio_num
     total_frames = config.total_frames
     # Paths
     if mini_data:
@@ -212,7 +212,7 @@ def calculate_feature_for_all_audio_files(args):
 #         # Remove the extra log mel spectrogram frames caused by padding zero
         feature = feature[0 : total_frames]
         for i in range(audio_num):
-            feature_clip = feature[i*frames_per_second*audio_stride_clip: (i+2)*frames_per_second*audio_stride_clip]
+            feature_clip = feature[i*frames_per_second*audio_stride_clip: (i+audio_duration_clip)*frames_per_second*audio_stride_clip]
             fea_list.append(feature_clip)
         
         hf['feature'].resize((n + 1, audio_num, frames_num, mel_bins))

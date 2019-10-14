@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+import config
 
 def move_data_to_gpu(x, cuda):
     if 'float' in str(x.dtype):
@@ -36,11 +36,11 @@ def forward(model, generate_func, cuda, return_input=False,
       max_validate_num: None | int, maximum mini-batch to forward to speed up validation
     '''
     output_dict = {}
-    
+    audio_num = config.audio_num
     # Evaluate on mini-batch
     for batch_data_dict in generate_func:
         batch_output=[]
-        for i in range(4):
+        for i in range(audio_num):
             # Predict
             batch_feature = move_data_to_gpu(batch_data_dict['feature'][:, i, :, :], cuda)
 

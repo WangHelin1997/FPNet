@@ -34,7 +34,7 @@ class Evaluator(object):
         self.idx_to_lb = config.idx_to_lb
         self.lb_to_idx = config.lb_to_idx
 
-    def evaluate(self, data_type, max_iteration=None, verbose=False):
+    def evaluate(self, data_type, iteration, max_iteration=None, verbose=False):
         '''Evaluate the performance. 
         
         Args: 
@@ -53,19 +53,30 @@ class Evaluator(object):
             generate_func=generate_func, 
             cuda=self.cuda, 
             return_target=True)
-        
+        file = 'wrong_list/'+ 'wrong_classification_' + str(iteration)
         output = output_dict['output']  # (audios_num, in_domain_classes_num)
         target = output_dict['target']  # (audios_num, in_domain_classes_num)
-        
+        filename = output_dict['filename']
 
         prob = np.exp(output)   # Subtask a, b use log softmax as output
 
         
         # Evaluate
         y_true = np.argmax(target, axis=-1)
-#         print(y_true)
         y_pred = np.argmax(prob, axis=-1)
 #         print(y_pred)
+        if data_type=='validate':
+            for i in range(len(y_true)):
+                if y_true[i] != y_pred[i]:
+                    with open(file,'a') as f:
+                        audioname = filename[i]
+                        true_idx = str(y_true[i])
+                        pred_idx = str(y_pred[i])
+                        true_label = self.idx_to_lb[y_true[i]]
+                        pred_label = self.idx_to_lb[y_pred[i]]
+                        f.write(audioname+'\t'+true_idx+'\t'+true_label+'\t'+pred_idx+'\t'+pred_label+'\n')
+                
+    
         confusion_matrix = metrics.confusion_matrix(y_true, y_pred, labels=np.arange(self.in_domain_classes_num))
   
         classwise_accuracy = np.diag(confusion_matrix) \
